@@ -1,0 +1,14 @@
+.env
+__pycache__/
+*.pyc
+venv/
+.venv/
+env/
+.idea/
+.vscode/
+*.json
+bot.log
+*.log
+instance/
+*.backup.db
+*.xlsx

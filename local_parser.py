@@ -1,0 +1,194 @@
+import re
+import unicodedata
+import logging
+
+logger = logging.getLogger(__name__)
+
+VALID_BANK_NAMES = {"VCB", "ACB", "CASH", "MOMO"}
+
+BANK_KEYWORDS = {
+    "VCB": ["vcb", "vietcombank", "vietcom"],
+    "ACB": ["acb", "asia commercial"],
+    "CASH": ["cash", "tiền mặt", "tien mat", "mặt", "tienmat"],
+    "MOMO": ["momo", "ví điện tử"],
+}
+
+ACTION_KEYWORDS = {
+    "income": ["nhận", "lương", "thưởng", "thu nhập", "lãi", "cổ tức",
+               "bán", "được trả", "hoàn tiền", "cashback", "vào", "có"],
+    "transfer": ["chuyển", "rút", "nạp", "gửi", "chuyển khoản", "transfer",
+                 "đi", "đưa", "sang"],
+}
+
+CATEGORY_KEYWORDS = {
+    "salary": ["lương", "thưởng", "phụ cấp", "bảo hiểm", "nhân sự", "nhân viên", "bhxh", "bhyt"],
+    "office": ["văn phòng", "vpp", "giấy", "bút", "mực", "in ấn", "nước suối", "trà", "cà phê", "trang thiết bị", "nội thất"],
+    "marketing": ["marketing", "quảng cáo", "ads", "facebook", "google", "tiktok", "pr", "sự kiện", "event", "in ấn", "banner", "khuyến mãi"],
+    "operations": ["vận hành", "bảo trì", "bảo dưỡng", "phí quản lý", "phí dịch vụ", "vệ sinh", "internet", "viễn thông", "gửi xe", "phần mềm", "server", "domain", "hosting"],
+    "equipment": ["thiết bị", "máy tính", "laptop", "màn hình", "chuột", "bàn phím", "máy in", "điện thoại", "máy móc"],
+    "inventory": ["nhập hàng", "nguyên vật liệu", "hàng hóa", "nguyên liệu", "bao bì", "vận chuyển", "kho", "logistics", "ship"],
+    "rent": ["thuê", "mặt bằng", "nhà", "cọc", "văn phòng"],
+    "utilities": ["điện", "nước", "mạng", "internet", "wifi", "rác"],
+    "taxes": ["thuế", "gtgt", "vat", "tncn", "tndn", "hải quan", "phí", "lệ phí", "kế toán", "kiểm toán"],
+    "entertainment": ["tiếp khách", "ăn uống", "liên hoan", "nhậu", "quà", "tặng", "biếu", "ngoại giao"],
+    "production": ["sản xuất", "gia công", "nhân công", "xưởng", "máy móc"],
+    "sales": ["bán", "doanh thu", "dịch vụ", "thu", "hợp đồng", "thanh toán", "dự án", "khách hàng"],
+    "transfer": ["chuyển", "rút", "nạp", "chuyển khoản"],
+}
+
+AMOUNT_PATTERNS = [
+    (r'(\d+\.?\d*)\s*tr(?:iệu)?', lambda m: float(m.group(1)) * 1_000_000),
+    (r'(\d+\.?\d*)\s*k', lambda m: float(m.group(1)) * 1000),
+    (r'(\d+\.?\d*)\s*nghìn', lambda m: float(m.group(1)) * 1000),
+    (r'(\d+)[\s,]*\.?\s*đ', lambda m: float(m.group(1).replace(',', ''))),
+    (r'(\d{1,3}(?:[.,]\d{3})+)', lambda m: float(m.group(1).replace('.', '').replace(',', ''))),
+    (r'(\d+)', lambda m: float(m.group(1))),
+]
+
+# Matches: "chuyển 2tr từ VCB sang ACB" / "chuyển 500k từ acb vào momo"
+# Dùng \S+ thay cho ký tự có dấu cụ thể để tránh lỗi Unicode
+TRANSFER_PATTERN = re.compile(
+    r'(?:chuy\S*n|r\S*t|n\S+p|g\S+i)\s+'
+    r'([\d]+(?:[.,][\d]+)?(?:\s*(?:tr(?:\S*)?|k|nghìn))?)\s*'
+    r't\S*\s+'
+    r'(\w+)\s+'
+    r'(?:sang|d\S*n|v\S+o|qua|cho)\s*'
+    r'(\w+)',
+    re.IGNORECASE,
+)
+
+# Matches: "rút 2tr từ VCB" (destination defaults to CASH)
+# Matches: "nạp 2tr VCB" (source defaults to CASH)
+TRANSFER_SHORT_PATTERN = re.compile(
+    r'(?:r\S*t|n\S+p)\s+'
+    r'([\d]+(?:[.,][\d]+)?(?:\s*(?:tr(?:\S*)?|k|nghìn))?)\s*'
+    r'(?:t\S*)?\s*'
+    r'(\w+)',
+    re.IGNORECASE,
+)
+
+
+def resolve_bank(text):
+    text_stripped = text.upper().strip()
+    text_lower = text.lower().strip()
+    for bank, keywords in BANK_KEYWORDS.items():
+        for kw in keywords:
+            if kw in text_lower or text_stripped == bank:
+                return bank
+    # If it's a short known bank name return as-is uppercase
+    return text_stripped if text_stripped else None
+
+
+def parse_amount_local(text):
+    for pattern, func in AMOUNT_PATTERNS:
+        m = re.search(pattern, text, re.IGNORECASE | re.UNICODE)
+        if m:
+            return func(m)
+    return None
+
+
+def parse_transaction_local(text):
+    # Chuẩn hóa Unicode NFC — điện thoại gửi NFD, regex dùng NFC
+    text = unicodedata.normalize('NFC', text)
+    text_lower = text.lower().strip()
+    text_original = text.strip()
+
+    # Xác định income/expense từ dấu + / - đầu câu
+    forced_action = None
+    if text.startswith('+') and not text.startswith('++'):
+        forced_action = "income"
+    elif text.startswith('-') and not text.startswith('--'):
+        forced_action = "expense"
+
+    result = {
+        "action": "income" if forced_action == "income" else "expense",
+        "amount": None,
+        "category": "other",
+        "bank": None,
+        "from_bank": None,
+        "to_bank": None,
+        "description": text_original,
+        "from_local": True,
+    }
+
+    # 1. Detect full TRANSFER: "chuyển X từ A sang B"
+    m = TRANSFER_PATTERN.search(text)
+    if m:
+        result["action"] = "transfer"
+        result["amount"] = parse_amount_local(m.group(1))
+        result["from_bank"] = resolve_bank(m.group(2))
+        result["to_bank"] = resolve_bank(m.group(3))
+        result["description"] = f"Chuyển từ {result['from_bank']} sang {result['to_bank']}"
+        logger.info(f"Local: detected transfer {result['from_bank']} -> {result['to_bank']} amount={result['amount']}")
+        return result
+
+    # 2. Detect short TRANSFER: "rút X từ A" → to_bank defaults to CASH
+    m = TRANSFER_SHORT_PATTERN.search(text)
+    if m:
+        result["action"] = "transfer"
+        result["amount"] = parse_amount_local(m.group(1))
+        result["from_bank"] = resolve_bank(m.group(2))
+        result["to_bank"] = "CASH"
+        result["description"] = f"Rút từ {result['from_bank']} ra tiền mặt"
+        logger.info(f"Local: detected withdrawal from {result['from_bank']}, amount={result['amount']}")
+        return result
+
+    # 2b. Fallback transfer: "chuyển ... VCB ... ACB" nếu regex Unicode fail
+    if not forced_action and 'chuy' in text_lower:
+        words = re.findall(r'[A-Za-z]+', text_original)
+        banks_found = []
+        for w in words:
+            bank = resolve_bank(w)
+            if bank and bank in VALID_BANK_NAMES:
+                banks_found.append(bank)
+        if len(banks_found) >= 2:
+            result["action"] = "transfer"
+            result["from_bank"] = banks_found[0]
+            result["to_bank"] = banks_found[1]
+            result["description"] = f"Chuyển từ {banks_found[0]} sang {banks_found[1]}"
+            logger.info(f"Local: fallback transfer {banks_found[0]} -> {banks_found[1]} amount={result['amount']}")
+
+    # 3. Extract amount
+    result["amount"] = parse_amount_local(text)
+
+    # 4. Detect INCOME (nếu chưa có forced_action từ dấu + / -, và không phải transfer)
+    if not forced_action and result["action"] != "transfer":
+        income_score = sum(1 for kw in ACTION_KEYWORDS["income"] if kw in text_lower)
+        expense_score = sum(1 for kw in ["mua", "ăn", "đi", "trả", "đóng", "chi"] if kw in text_lower)
+        if income_score > 0 and income_score >= expense_score:
+            result["action"] = "income"
+
+    # 5. Detect bank
+    for bank, keywords in BANK_KEYWORDS.items():
+        for kw in keywords:
+            if kw in text_lower:
+                result["bank"] = bank
+                break
+        if result["bank"]:
+            break
+
+    # 6. Category by keyword scoring
+    scores = {}
+    for cat, keywords in CATEGORY_KEYWORDS.items():
+        score = sum(1 for kw in keywords if kw in text_lower)
+        if score > 0:
+            scores[cat] = score
+    if scores:
+        best_cat = max(scores, key=scores.get)
+        if scores[best_cat] >= 1:
+            result["category"] = best_cat
+
+    # 7. Clean description: remove amount & bank words
+    desc = text_original
+    for pat, _ in AMOUNT_PATTERNS:
+        desc = re.sub(pat, '', desc, flags=re.IGNORECASE | re.UNICODE)
+    for bank_kws in BANK_KEYWORDS.values():
+        for kw in bank_kws:
+            desc = re.sub(re.escape(kw), '', desc, flags=re.IGNORECASE)
+    desc = re.sub(r'\s+', ' ', desc).strip()
+    if desc:
+        result["description"] = desc[:80]
+
+    logger.info(f"Local parsed: action={result['action']} amount={result['amount']} "
+                f"cat={result['category']} bank={result['bank']}")
+    return result
