@@ -3,18 +3,18 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Finance Dashboard</title>
+    <title>OHM Dashboard</title>
     <link rel="stylesheet" href="/static/css/style.css">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
 <body>
     <nav class="sidebar">
-        <div class="sidebar-logo">
-            <span>FinanceBot</span>
-        </div>
+        <div class="sidebar-logo"><span>OHM</span></div>
         <a href="/dashboard" class="active">Dashboard</a>
+        <a href="/products">Products</a>
+        <a href="/inventory">Inventory</a>
+        <a href="/profit">Profit</a>
         <a href="/transactions">Transactions</a>
-        <a href="/assets">Saving Plans & Assets</a>
         <a href="/reports">Reports</a>
         <a href="/settings">Settings</a>
     </nav>
@@ -23,116 +23,81 @@
         <div class="top-header">
             <h1>Dashboard</h1>
             <div class="header-actions">
-                <a class="header-link" href="/snapshot">Mobile Snapshot</a>
-                <a class="header-link" href="/api/export/excel">Export Excel</a>
+                <a class="header-link" href="/snapshot">Mobile</a>
+                <a class="header-link" href="/api/export/excel">Export</a>
             </div>
         </div>
 
-        <div class="dashboard-grid">
-            <!-- Left Main Column -->
-            <div class="main-column">
-                <div class="top-cards-row">
-                    <div class="card balance-card">
-                        <h3>Andrew Forbist</h3>
-                        <div class="amount">{{ "{:,.0f}".format(report.balance) }} </div>
-                        <div class="details">
-                            <span>VND</span>
-                        </div>
-                    </div>
-                    <div class="card stat-card">
-                        <h4>Total Income</h4>
-                        <div class="value text-green">+{{ "{:,.0f}".format(report.monthly.income) }}</div>
-                    </div>
-                    <div class="card stat-card">
-                        <h4>Total Expense</h4>
-                        <div class="value text-red">-{{ "{:,.0f}".format(report.monthly.expense) }}</div>
-                    </div>
-                    <div class="card stat-card">
-                        <h4>Portfolio Value</h4>
-                        <div class="value text-green">{{ "{:,.0f}".format(assets.total_current) }}</div>
-                    </div>
-                </div>
-
-                <div class="chart-container">
-                    <div class="chart-header">
-                        <h3>Cashflow</h3>
-                        <select style="border:none; color:var(--text-muted); font-weight:500;"><option>This Year</option></select>
-                    </div>
-                    <canvas id="cashFlowChart" height="250"></canvas>
-                </div>
-
-                <div class="chart-container">
-                    <div class="chart-header">
-                        <h3>Portfolio Mix</h3>
-                        <span class="text-muted">Active assets</span>
-                    </div>
-                    <canvas id="portfolioChart" height="250"></canvas>
-                </div>
-
-                <div class="recent-transactions">
-                    <div class="chart-header">
-                        <h3>Recent Transactions</h3>
-                        <a href="/transactions" class="text-muted" style="text-decoration: none;">View All</a>
-                    </div>
-                    <div class="table-wrap">
-                        <table class="tx-table">
-                            <tr>
-                                <th>Transaction Name</th>
-                                <th>Date</th>
-                                <th>Amount</th>
-                                <th>Bank</th>
-                            </tr>
-                            {% for tx in recent_transactions %}
-                            <tr>
-                                <td>
-                                    <div>{{ tx.description }}</div>
-                                    <div class="text-muted" style="text-transform: capitalize;">{{ tx.category }}</div>
-                                </td>
-                                <td class="text-muted">{{ tx.transaction_date }}</td>
-                                <td class="{% if tx.amount > 0 %}text-green{% else %}text-red{% endif %}">
-                                    {{ "{:+,.0f}".format(tx.amount) }}
-                                </td>
-                                <td>
-                                    <span class="status-badge status-completed">{{ tx.bank_account if tx.bank_account else 'Cash' }}</span>
-                                </td>
-                            </tr>
-                            {% endfor %}
-                        </table>
-                    </div>
-                </div>
+        <div class="top-cards-row">
+            <div class="card balance-card">
+                <h3>Cash Balance</h3>
+                <div class="amount">{{ "{:,.0f}".format(report.balance) }} </div>
+                <div class="details"><span>VND</span></div>
             </div>
+            <div class="card stat-card">
+                <h4>Total Income</h4>
+                <div class="value text-green">+{{ "{:,.0f}".format(report.monthly.income) }}</div>
+            </div>
+            <div class="card stat-card">
+                <h4>Total Expense</h4>
+                <div class="value text-red">-{{ "{:,.0f}".format(report.monthly.expense) }}</div>
+            </div>
+            <div class="card stat-card">
+                <h4>Products</h4>
+                <div class="value">{{ products.stats.total_products }}</div>
+            </div>
+        </div>
 
-            <!-- Right Sidebar Column -->
-            <div class="side-column">
-                <div class="donut-chart-card">
-                    <div class="chart-header">
-                        <h3>Statistic</h3>
-                        <span class="text-muted">This Month</span>
-                    </div>
-                    <canvas id="categoryChart" height="250"></canvas>
-                </div>
-                
-                {% if assets.assets %}
-                <div class="recent-transactions">
-                    <div class="chart-header">
-                        <h3>Active Plans</h3>
-                    </div>
-                    <div class="table-wrap">
-                        <table class="tx-table">
-                            {% for a in assets.assets %}
-                            {% if a.is_active %}
-                            <tr>
-                                <td>
-                                    <div>{{ a.name }}</div>
-                                    <div class="text-muted">{{ "{:,.0f}".format(a.current_value) }} / {{ "{:,.0f}".format(a.original_value) }}</div>
-                                </td>
-                            </tr>
-                            {% endif %}
-                            {% endfor %}
-                        </table>
-                    </div>
-                </div>
-                {% endif %}
+        <div class="top-cards-row" style="margin-top:20px;">
+            <div class="card stat-card" style="background:rgba(16,185,129,0.08);">
+                <h4>Inventory Cost</h4>
+                <div class="value" style="color:#059669;">{{ "{:,.0f}".format(products.stats.total_inventory_cost) }}</div>
+            </div>
+            <div class="card stat-card" style="background:rgba(59,130,246,0.08);">
+                <h4>Selling Value</h4>
+                <div class="value" style="color:#1d4ed8;">{{ "{:,.0f}".format(products.stats.total_inventory_value) }}</div>
+            </div>
+            <div class="card stat-card" style="background:rgba(245,158,11,0.08);">
+                <h4>Inventory Qty</h4>
+                <div class="value" style="color:#d97706;">{{ "{:,}".format(products.stats.total_inventory_qty) }}</div>
+            </div>
+            <div class="card stat-card" style="background:rgba(139,92,246,0.08);">
+                <h4>Profit (Sales)</h4>
+                <div class="value" style="color:#7c3aed;">{{ "{:,.0f}".format(products.sales.total_profit) }}</div>
+            </div>
+        </div>
+
+        <div class="charts-row" style="margin-top:20px;">
+            <div class="chart-card">
+                <h3>Cashflow</h3>
+                <canvas id="cashFlowChart" height="200"></canvas>
+            </div>
+            <div class="chart-card">
+                <h3>Top Product Margins</h3>
+                <canvas id="marginMiniChart" height="200"></canvas>
+            </div>
+        </div>
+
+        <div class="recent-transactions" style="margin-top:20px;">
+            <div class="chart-header">
+                <h3>Recent Transactions</h3>
+                <a href="/transactions" class="text-muted" style="text-decoration: none;">View All</a>
+            </div>
+            <div class="table-wrap">
+                <table class="tx-table">
+                    <tr><th>Name</th><th>Date</th><th>Amount</th><th>Bank</th></tr>
+                    {% for tx in recent_transactions %}
+                    <tr>
+                        <td>
+                            <div>{{ tx.description }}</div>
+                            <div class="text-muted" style="text-transform: capitalize;">{{ tx.category }}</div>
+                        </td>
+                        <td class="text-muted">{{ tx.transaction_date }}</td>
+                        <td class="{% if tx.amount > 0 %}text-green{% else %}text-red{% endif %}">{{ "{:+,.0f}".format(tx.amount) }}</td>
+                        <td><span class="status-badge status-completed">{{ tx.bank_account if tx.bank_account else 'Cash' }}</span></td>
+                    </tr>
+                    {% endfor %}
+                </table>
             </div>
         </div>
     </div>
@@ -140,8 +105,31 @@
     <script src="/static/js/chart.js"></script>
     <script>
         const report = {{ report | tojson }};
-        const assets = {{ assets | tojson }};
-        initDashboardCharts(report, assets);
+        const products = {{ products | tojson }};
+        const cf = report.cash_flow || [];
+        const labels = cf.map(c => c.label);
+        drawBarChart("cashFlowChart", labels, cf.map(c => c.income), cf.map(c => c.expense));
+        
+        const topM = (products.margins && products.margins.top) || [];
+        if (document.getElementById('marginMiniChart') && typeof Chart !== 'undefined') {
+            new Chart(document.getElementById('marginMiniChart'), {
+                type: 'bar',
+                data: {
+                    labels: topM.slice(0,6).map(m => (m.ten_hang||'').substring(0,10)),
+                    datasets: [{
+                        label: 'Margin %',
+                        data: topM.slice(0,6).map(m => m.bien_lai),
+                        backgroundColor: topM.slice(0,6).map(m => m.bien_lai < 0 ? '#ef4444' : '#10b981'),
+                        borderRadius: 4, barPercentage: 0.7,
+                    }]
+                },
+                options: {
+                    responsive: true, maintainAspectRatio: false,
+                    plugins: { legend: { display: false } },
+                    scales: { x: { grid: { display: false } }, y: { grid: { borderDash: [5,5] }, ticks: { callback: v => v + '%' } } }
+                }
+            });
+        }
     </script>
 </body>
 </html>

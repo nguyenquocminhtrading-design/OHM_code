@@ -9,70 +9,58 @@
 </head>
 <body>
     <nav class="sidebar">
-        <h2><span>Finance</span></h2>
-        <a href="/dashboard"><span>Dashboard</span></a>
-        <a href="/transactions"><span>Transactions</span></a>
-        <a href="/assets"><span>Assets</span></a>
-        <a href="/reports" class="active"><span>Reports</span></a>
-        <a href="/settings"><span>Settings</span></a>
+        <div class="sidebar-logo"><span>OHM</span></div>
+        <a href="/dashboard">Dashboard</a>
+        <a href="/products">Products</a>
+        <a href="/inventory">Inventory</a>
+        <a href="/profit">Profit</a>
+        <a href="/transactions">Transactions</a>
+        <a href="/reports" class="active">Reports</a>
+        <a href="/settings">Settings</a>
     </nav>
     <div class="main-content">
         <div class="header-bar">
-            <h1>Financial Reports</h1>
+            <h1>Reports</h1>
         </div>
 
-        <div class="top-cards-row" style="margin-bottom:20px;">
+        <div class="top-cards-row">
             <div class="card stat-card">
                 <h4>Balance</h4>
                 <div class="value">{{ "{:,.0f}".format(report.balance) }}</div>
             </div>
             <div class="card stat-card">
-                <h4>Portfolio Value</h4>
-                <div class="value">{{ "{:,.0f}".format(assets.total_current) }}</div>
+                <h4>Inventory Cost</h4>
+                <div class="value">{{ "{:,.0f}".format(products.stats.total_inventory_cost) }}</div>
             </div>
             <div class="card stat-card">
-                <h4>Active Assets</h4>
-                <div class="value">{{ assets.active_count }}</div>
+                <h4>Revenue</h4>
+                <div class="value text-green">{{ "{:,.0f}".format(products.sales.total_revenue) }}</div>
             </div>
             <div class="card stat-card">
                 <h4>Cash Flow Net</h4>
-                <div class="value {% if report.monthly.net >= 0 %}text-green{% else %}text-red{% endif %}">
-                    {{ "{:+,.0f}".format(report.monthly.net) }}
-                </div>
+                <div class="value {% if report.monthly.net >= 0 %}text-green{% else %}text-red{% endif %}">{{ "{:+,.0f}".format(report.monthly.net) }}</div>
             </div>
         </div>
 
         <div class="charts-row">
             <div class="chart-card">
                 <h3>Cash Flow Trend</h3>
-                <canvas id="cashFlowTrend" width="500" height="250"></canvas>
+                <canvas id="cashFlowTrend" height="250"></canvas>
             </div>
             <div class="chart-card">
                 <h3>Income vs Expense</h3>
-                <canvas id="incomeVsExpense" width="500" height="250"></canvas>
+                <canvas id="incomeVsExpense" height="250"></canvas>
             </div>
         </div>
 
         <div class="charts-row">
             <div class="chart-card">
                 <h3>Top Spending Categories</h3>
-                <canvas id="topCategoriesChart" width="300" height="300"></canvas>
-                <div id="topCategoriesChart-legend"></div>
+                <canvas id="topCategoriesChart" height="300"></canvas>
             </div>
             <div class="chart-card">
-                <h3>Spend by Account</h3>
-                <canvas id="bankSpendChart" width="300" height="300"></canvas>
-            </div>
-        </div>
-
-        <div class="charts-row">
-            <div class="chart-card">
-                <h3>Bank Spend Trend</h3>
-                <canvas id="bankTrendChart" width="500" height="250"></canvas>
-            </div>
-            <div class="chart-card">
-                <h3>Portfolio Mix</h3>
-                <canvas id="portfolioChart" width="300" height="300"></canvas>
+                <h3>Sales Profit</h3>
+                <canvas id="salesProfitChart" height="300"></canvas>
             </div>
         </div>
 
@@ -85,9 +73,22 @@
                     <td>{{ m.label }}</td>
                     <td style="color:#00b894;">+{{ "{:,.0f}".format(m.income) }}</td>
                     <td style="color:#d63031;">-{{ "{:,.0f}".format(m.expense) }}</td>
-                    <td style="color:{% if m.net >= 0 %}#00b894{% else %}#d63031{% endif %};">
-                        {{ "{:+,.0f}".format(m.net) }}
-                    </td>
+                    <td style="color:{% if m.net >= 0 %}#00b894{% else %}#d63031{% endif %};">{{ "{:+,.0f}".format(m.net) }}</td>
+                </tr>
+                {% endfor %}
+            </table>
+        </div>
+
+        <div class="chart-card" style="margin-top:20px;">
+            <h3>Import Logs</h3>
+            <table>
+                <tr><th>Time</th><th>File</th><th>Products</th><th>Status</th></tr>
+                {% for log in products.import_logs %}
+                <tr>
+                    <td>{{ log.imported_at }}</td>
+                    <td>{{ log.source_file }}</td>
+                    <td>{{ log.product_count }}</td>
+                    <td><span class="badge {% if log.status == 'success' %}income{% else %}expense{% endif %}">{{ log.status }}</span></td>
                 </tr>
                 {% endfor %}
             </table>
@@ -96,7 +97,6 @@
     <script src="/static/js/chart.js"></script>
     <script>
         const report = {{ report | tojson }};
-        const assets = {{ assets | tojson }};
         const cf = report.cash_flow || [];
         const labels = cf.map(c => c.label);
         const income = cf.map(c => c.income);
@@ -111,17 +111,18 @@
 
         const cats = report.categories || [];
         drawPieChart("topCategoriesChart", cats.map(c => c.total), cats.map(c => c.category));
-        const bankSpend = report.bank_spend || {};
-        drawPieChart("bankSpendChart", Object.values(bankSpend), Object.keys(bankSpend));
-        const trend = report.bank_trend || [];
-        const trendLabels = trend.map(r => r.label);
-        const bankSeries = ["VCB", "ACB", "CASH", "MOMO", "unassigned"].map((bank, idx) => ({
-            label: bank,
-            data: trend.map(r => (r.values && r.values[bank]) || 0),
-            color: ["#1d4ed8", "#2563eb", "#06b6d4", "#10b981", "#f59e0b", "#64748b"][idx],
-        }));
-        drawStackedBarChart("bankTrendChart", trendLabels, bankSeries);
-        drawPortfolioChart("portfolioChart", assets.assets || []);
+
+        const topSP = ({{ (products.margins.top[:8] | tojson) }});
+        if (document.getElementById('salesProfitChart') && typeof Chart !== 'undefined') {
+            new Chart(document.getElementById('salesProfitChart'), {
+                type: 'doughnut',
+                data: {
+                    labels: topSP.map(p => (p.ten_hang||p.ma_hang).substring(0,12)),
+                    datasets: [{ data: topSP.map(p => p.gia_tri_ton), backgroundColor: ['rgb(0,25,152)','#3b82f6','#8b5cf6','#ec4899','#f59e0b','#10b981','#14b8a6','#64748b'], borderWidth: 0 }]
+                },
+                options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'bottom', labels: { usePointStyle: true } } }, cutout: '68%' }
+            });
+        }
     </script>
 </body>
 </html>

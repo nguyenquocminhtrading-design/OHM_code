@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Profit Analysis</title>
+    <link rel="stylesheet" href="/static/css/style.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+    <nav class="sidebar">
+        <div class="sidebar-logo"><span>OHM</span></div>
+        <a href="/dashboard">Dashboard</a>
+        <a href="/products">Products</a>
+        <a href="/inventory">Inventory</a>
+        <a href="/profit" class="active">Profit</a>
+        <a href="/transactions">Transactions</a>
+        <a href="/reports">Reports</a>
+        <a href="/settings">Settings</a>
+    </nav>
+    <div class="main-content">
+        <div class="top-header">
+            <h1>Profit Analysis</h1>
+        </div>
+
+        <div class="top-cards-row">
+            <div class="card stat-card">
+                <h4>Total Revenue</h4>
+                <div class="value text-green">{{ "{:,.0f}".format(profit.sales_summary.total_revenue) }}</div>
+            </div>
+            <div class="card stat-card">
+                <h4>Total Profit</h4>
+                <div class="value text-green">{{ "{:,.0f}".format(profit.sales_summary.total_profit) }}</div>
+            </div>
+            <div class="card stat-card">
+                <h4>Units Sold</h4>
+                <div class="value">{{ "{:,}".format(profit.sales_summary.total_sold) }}</div>
+            </div>
+            <div class="card stat-card">
+                <h4>Low Margin SP</h4>
+                <div class="value text-red">{{ profit.low_margin | length }}</div>
+            </div>
+        </div>
+
+        <div class="charts-row">
+            <div class="chart-card">
+                <h3>Top 10 Profit Margin</h3>
+                <canvas id="profitBarChart" height="300"></canvas>
+            </div>
+            <div class="chart-card">
+                <h3>Price vs Cost Comparison</h3>
+                <canvas id="priceChart" height="300"></canvas>
+            </div>
+        </div>
+
+        {% if profit.low_margin %}
+        <div class="chart-card" style="margin-top:20px; border-left: 4px solid var(--danger);">
+            <h3 style="color:var(--danger);">⚠ Products with Negative / Low Margin</h3>
+            <div class="table-wrap">
+                <table class="tx-table">
+                    <tr>
+                        <th>Code</th>
+                        <th>Name</th>
+                        <th>Sell Price</th>
+                        <th>Cost</th>
+                        <th>Margin</th>
+                        <th>Stock</th>
+                        <th>Stock Value</th>
+                    </tr>
+                    {% for p in profit.low_margin %}
+                    <tr>
+                        <td>{{ p.ma_hang }}</td>
+                        <td><strong>{{ p.ten_hang }}</strong></td>
+                        <td>{{ "{:,.0f}".format(p.gia_ban) }}</td>
+                        <td>{{ "{:,.0f}".format(p.gia_von) }}</td>
+                        <td class="text-red">{{ "{:.1f}%".format(p.ty_suat) }}</td>
+                        <td>{{ p.ton_kho }}</td>
+                        <td>{{ "{:,.0f}".format(p.gia_tri_ton_kho) }}</td>
+                    </tr>
+                    {% endfor %}
+                </table>
+            </div>
+        </div>
+        {% endif %}
+
+        <div class="chart-card" style="margin-top:20px;">
+            <div class="chart-header">
+                <h3>All Products — Profit Detail</h3>
+                <input type="text" id="searchProfit" placeholder="Search..." style="width:200px; border:1px solid var(--border-color); border-radius:12px; padding:10px 12px;" onkeyup="filterProfit()">
+            </div>
+            <div class="table-wrap">
+                <table class="tx-table" id="profitTable">
+                    <tr>
+                        <th>Code</th>
+                        <th>Name</th>
+                        <th>Sell Price</th>
+                        <th>Cost</th>
+                        <th>Profit/Unit</th>
+                        <th>Margin</th>
+                        <th>Stock</th>
+                        <th>Stock Value</th>
+                    </tr>
+                    {% for p in profit.products %}
+                    <tr>
+                        <td>{{ p.ma_hang }}</td>
+                        <td><strong>{{ p.ten_hang }}</strong></td>
+                        <td>{{ "{:,.0f}".format(p.gia_ban) }}</td>
+                        <td>{{ "{:,.0f}".format(p.gia_von) }}</td>
+                        <td class="{% if p.loi_nhuan_sp < 0 %}text-red{% else %}text-green{% endif %}">
+                            {{ "{:+,.0f}".format(p.loi_nhuan_sp) }}
+                        </td>
+                        <td class="{% if p.ty_suat < 0 %}text-red{% elif p.ty_suat < 20 %}text-warning{% else %}text-green{% endif %}">
+                            {{ "{:.1f}%".format(p.ty_suat) }}
+                        </td>
+                        <td>{{ p.ton_kho }}</td>
+                        <td>{{ "{:,.0f}".format(p.gia_tri_ton_kho) }}</td>
+                    </tr>
+                    {% endfor %}
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <script src="/static/js/chart.js"></script>
+    <script>
+        const topProfit = {{ profit.top_profit | tojson }};
+        if (typeof Chart !== 'undefined') {
+            const labels = topProfit.map(p => (p.ten_hang || p.ma_hang).substring(0, 15));
+            const marginData = topProfit.map(p => p.ty_suat);
+            const sellPrices = topProfit.map(p => p.gia_ban);
+            const costPrices = topProfit.map(p => p.gia_von);
+            const colors = marginData.map(v => v < 0 ? '#ef4444' : '#10b981');
+
+            const c1 = document.getElementById('profitBarChart');
+            if (c1) {
+                new Chart(c1, {
+                    type: 'bar',
+                    data: {
+                        labels,
+                        datasets: [{
+                            label: 'Margin %',
+                            data: marginData,
+                            backgroundColor: colors,
+                            borderRadius: 4,
+                            barPercentage: 0.7,
+                        }]
+                    },
+                    options: {
+                        responsive: true, maintainAspectRatio: false,
+                        indexAxis: 'y',
+                        plugins: {
+                            legend: { display: false },
+                            tooltip: { callbacks: { label: (ctx) => ctx.parsed.x.toFixed(1) + '%' } }
+                        },
+                        scales: {
+                            x: { grid: { borderDash: [5,5] }, ticks: { callback: v => v + '%' } },
+                            y: { grid: { display: false } }
+                        }
+                    }
+                });
+            }
+
+            const c2 = document.getElementById('priceChart');
+            if (c2) {
+                new Chart(c2, {
+                    type: 'bar',
+                    data: {
+                        labels,
+                        datasets: [
+                            { label: 'Sell Price', data: sellPrices, backgroundColor: '#3b82f6', borderRadius: 4, barPercentage: 0.6 },
+                            { label: 'Cost', data: costPrices, backgroundColor: '#f59e0b', borderRadius: 4, barPercentage: 0.6 },
+                        ]
+                    },
+                    options: {
+                        responsive: true, maintainAspectRatio: false,
+                        plugins: {
+                            legend: { position: 'top', labels: { usePointStyle: true, boxWidth: 8 } },
+                            tooltip: { callbacks: { label: (ctx) => ctx.dataset.label + ': ' + Number(ctx.parsed.y).toLocaleString() } }
+                        },
+                        scales: {
+                            x: { grid: { display: false } },
+                            y: { grid: { borderDash: [5,5] } }
+                        }
+                    }
+                });
+            }
+        }
+
+        function filterProfit() {
+            const val = document.getElementById('searchProfit').value.toLowerCase();
+            document.querySelectorAll('#profitTable tr:not(:first-child)').forEach(r => {
+                r.style.display = r.textContent.toLowerCase().includes(val) ? '' : 'none';
+            });
+        }
+    </script>
+</body>
+</html>

@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Products</title>
+    <link rel="stylesheet" href="/static/css/style.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+    <nav class="sidebar">
+        <div class="sidebar-logo"><span>OHM</span></div>
+        <a href="/dashboard">Dashboard</a>
+        <a href="/products" class="active">Products</a>
+        <a href="/inventory">Inventory</a>
+        <a href="/profit">Profit</a>
+        <a href="/transactions">Transactions</a>
+        <a href="/reports">Reports</a>
+        <a href="/settings">Settings</a>
+    </nav>
+    <div class="main-content">
+        <div class="top-header">
+            <h1>Products</h1>
+            <div class="header-actions">
+                <span class="text-muted">{{ products.stats.total_products }} products</span>
+            </div>
+        </div>
+
+        <div class="top-cards-row">
+            <div class="card stat-card">
+                <h4>Total Products</h4>
+                <div class="value">{{ products.stats.total_products }}</div>
+            </div>
+            <div class="card stat-card">
+                <h4>Inventory Qty</h4>
+                <div class="value">{{ "{:,}".format(products.stats.total_inventory_qty) }}</div>
+            </div>
+            <div class="card stat-card">
+                <h4>Inventory Cost</h4>
+                <div class="value">{{ "{:,.0f}".format(products.stats.total_inventory_cost) }}</div>
+            </div>
+            <div class="card stat-card">
+                <h4>Selling Value</h4>
+                <div class="value">{{ "{:,.0f}".format(products.stats.total_inventory_value) }}</div>
+            </div>
+        </div>
+
+        <div class="charts-row">
+            <div class="chart-card">
+                <h3>Top Profit Margin</h3>
+                <canvas id="marginChart" height="250"></canvas>
+            </div>
+            <div class="chart-card">
+                <h3>Category Distribution</h3>
+                <canvas id="categoryPie" height="250"></canvas>
+            </div>
+        </div>
+
+        <div class="chart-card" style="margin-top:20px;">
+            <div class="chart-header">
+                <h3>All Products</h3>
+                <div class="filters" style="margin:0;">
+                    <input type="text" id="searchInput" placeholder="Search product..." style="width:200px;" onkeyup="filterTable()">
+                </div>
+            </div>
+            <div class="table-wrap">
+                <table class="tx-table" id="productTable">
+                    <tr>
+                        <th>Code</th>
+                        <th>Name</th>
+                        <th>Category</th>
+                        <th>Cost</th>
+                        <th>Selling Price</th>
+                        <th>Stock</th>
+                        <th>Stock Value</th>
+                        <th>Margin</th>
+                    </tr>
+                    {% for p in products.margins.all %}
+                    <tr>
+                        <td>{{ p.ma_hang }}</td>
+                        <td><strong>{{ p.ten_hang }}</strong></td>
+                        <td><span class="badge">{{ p.nhom_hang or 'N/A' }}</span></td>
+                        <td>{{ "{:,.0f}".format(p.gia_von) }}</td>
+                        <td>{{ "{:,.0f}".format(p.gia_ban) }}</td>
+                        <td>{{ p.ton_kho }}</td>
+                        <td>{{ "{:,.0f}".format(p.gia_tri_ton) }}</td>
+                        <td class="{% if p.bien_lai < 0 %}text-red{% elif p.bien_lai < 20 %}text-warning{% else %}text-green{% endif %}">
+                            {{ "{:.1f}%".format(p.bien_lai) }}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <script src="/static/js/chart.js"></script>
+    <script>
+        const margins = {{ products.margins.top | tojson }};
+        const nhom = {{ products.nhom_hang | tojson }};
+
+        const marginLabels = margins.map(m => m.ten_hang.substring(0, 15));
+        const marginData = margins.map(m => m.bien_lai);
+        const marginColors = marginData.map(v => v < 0 ? '#ef4444' : v < 20 ? '#f59e0b' : '#10b981');
+        if (typeof Chart !== 'undefined') {
+            const c1 = document.getElementById('marginChart');
+            if (c1) {
+                new Chart(c1, {
+                    type: 'bar',
+                    data: {
+                        labels: marginLabels,
+                        datasets: [{
+                            label: 'Margin %',
+                            data: marginData,
+                            backgroundColor: marginColors,
+                            borderRadius: 4,
+                            barPercentage: 0.7,
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: { display: false },
+                            tooltip: { callbacks: { label: (ctx) => ctx.parsed.y.toFixed(1) + '%' } }
+                        },
+                        scales: {
+                            x: { grid: { display: false } },
+                            y: { grid: { borderDash: [5,5] }, ticks: { callback: v => v + '%' } }
+                        }
+                    }
+                });
+            }
+            const c2 = document.getElementById('categoryPie');
+            if (c2) {
+                const pieColors = ['rgb(0,25,152)','#3b82f6','#8b5cf6','#ec4899','#f59e0b','#10b981','#64748b'];
+                new Chart(c2, {
+                    type: 'doughnut',
+                    data: {
+                        labels: nhom.map(n => n.nhom || 'Uncategorized'),
+                        datasets: [{
+                            data: nhom.map(n => n.tong_gia_tri),
+                            backgroundColor: pieColors,
+                            borderWidth: 0,
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: { position: 'bottom', labels: { usePointStyle: true } },
+                            tooltip: { callbacks: { label: (ctx) => ctx.label + ': ' + Number(ctx.parsed).toLocaleString() } }
+                        },
+                        cutout: '68%'
+                    }
+                });
+            }
+        }
+
+        function filterTable() {
+            const input = document.getElementById('searchInput');
+            const filter = input.value.toLowerCase();
+            const rows = document.querySelectorAll('#productTable tr:not(:first-child)');
+            rows.forEach(row => {
+                const text = row.textContent.toLowerCase();
+                row.style.display = text.includes(filter) ? '' : 'none';
+            });
+        }
+    </script>
+</body>
+</html>

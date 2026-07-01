@@ -14,10 +14,11 @@ import threading
 from config import TELEGRAM_TOKEN, WEBHOOK_URL, SECRET_KEY, DATABASE_PATH, ADMIN_USER_ID
 from database import init_db, get_transactions, get_transaction_by_id
 from database import update_transaction, delete_transaction, count_transactions
-from database import get_assets, get_categories, get_setting, set_setting, get_db
+from database import get_categories, get_setting, set_setting, get_db
 from finance_logic import get_balance, get_monthly_summary, get_category_breakdown, get_cash_flow, get_full_report
-from asset_manager import get_asset_summary, run_monthly_depreciation
 from scheduler import create_scheduler
+from product_db import init_product_db
+from product_analytics import get_full_product_report, get_inventory_report, get_profit_report, run_full_import
 
 log_formatter = logging.Formatter('%(asctime)s [%(levelname)s] %(name)s: %(message)s')
 file_handler = RotatingFileHandler("bot.log", maxBytes=5*1024*1024, backupCount=3)
@@ -40,12 +41,6 @@ def resolve_web_user_id():
     row = conn.execute(
         "SELECT user_id, COUNT(*) as cnt FROM transactions GROUP BY user_id ORDER BY cnt DESC LIMIT 1"
     ).fetchone()
-    if row:
-        conn.close()
-        return row["user_id"]
-    row = conn.execute(
-        "SELECT user_id, COUNT(*) as cnt FROM assets GROUP BY user_id ORDER BY cnt DESC LIMIT 1"
-    ).fetchone()
     conn.close()
     return row["user_id"] if row else 0
 
@@ -53,6 +48,7 @@ app = Flask(__name__)
 app.secret_key = SECRET_KEY
 
 init_db()
+init_product_db()
 
 scheduler = create_scheduler()
 scheduler.start()
@@ -71,17 +67,17 @@ def index():
 def dashboard():
     uid = resolve_web_user_id()
     report = get_full_report(uid)
-    assets = get_asset_summary(uid)
+    product_report = get_full_product_report()
     recent_transactions = get_transactions(uid, limit=5, offset=0)
-    return render_template("dashboard.html", report=report, assets=assets, recent_transactions=recent_transactions)
+    return render_template("dashboard.html", report=report, products=product_report, recent_transactions=recent_transactions)
 
 
 @app.route("/snapshot")
 def snapshot():
     uid = resolve_web_user_id()
     report = get_full_report(uid)
-    assets = get_asset_summary(uid)
-    return render_template("mobile_snapshot.html", report=report, assets=assets)
+    product_report = get_full_product_report()
+    return render_template("mobile_snapshot.html", report=report, products=product_report)
 
 
 @app.route("/transactions")
@@ -109,23 +105,35 @@ def transactions_page():
     )
 
 
-@app.route("/assets")
-def assets_page():
-    summary = get_asset_summary(resolve_web_user_id())
-    return render_template("assets.html", summary=summary)
+@app.route("/products")
+def products_page():
+    pr = get_full_product_report()
+    return render_template("products.html", products=pr)
+
+@app.route("/inventory")
+def inventory_page():
+    inv = get_inventory_report()
+    return render_template("inventory.html", inventory=inv)
+
+@app.route("/profit")
+def profit_page():
+    profit = get_profit_report()
+    return render_template("profit.html", profit=profit)
 
 
 @app.route("/reports")
 def reports_page():
     uid = resolve_web_user_id()
     report = get_full_report(uid)
-    assets = get_asset_summary(uid)
-    return render_template("reports.html", report=report, assets=assets)
+    product_report = get_full_product_report()
+    return render_template("reports.html", report=report, products=product_report)
 
 
 @app.route("/settings")
 def settings_page():
-    return render_template("settings.html")
+    from product_db import get_import_logs
+    logs = get_import_logs(5)
+    return render_template("settings.html", import_logs=logs)
 
 
 @app.route("/ping")
@@ -195,22 +203,30 @@ def api_summary():
     return jsonify(report)
 
 
-@app.route("/api/assets")
-def api_assets():
-    summary = get_asset_summary(resolve_web_user_id())
-    return jsonify(summary)
+@app.route("/api/products")
+def api_products():
+    pr = get_full_product_report()
+    return jsonify(pr)
 
+@app.route("/api/products/inventory")
+def api_products_inventory():
+    inv = get_inventory_report()
+    return jsonify(inv)
+
+@app.route("/api/products/profit")
+def api_products_profit():
+    profit = get_profit_report()
+    return jsonify(profit)
+
+@app.route("/api/products/import", methods=["POST"])
+def api_products_import():
+    result = run_full_import()
+    return jsonify(result)
 
 @app.route("/api/categories")
 def api_categories():
     cats = get_categories(resolve_web_user_id())
     return jsonify(cats)
-
-
-@app.route("/api/run-depreciation", methods=["POST"])
-def api_run_depreciation():
-    results = run_monthly_depreciation(resolve_web_user_id())
-    return jsonify({"depreciated": len(results), "details": results})
 
 
 @app.route("/api/export/excel", methods=["GET"])

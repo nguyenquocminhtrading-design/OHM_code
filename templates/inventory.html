@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Inventory</title>
+    <link rel="stylesheet" href="/static/css/style.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+    <nav class="sidebar">
+        <div class="sidebar-logo"><span>OHM</span></div>
+        <a href="/dashboard">Dashboard</a>
+        <a href="/products">Products</a>
+        <a href="/inventory" class="active">Inventory</a>
+        <a href="/profit">Profit</a>
+        <a href="/transactions">Transactions</a>
+        <a href="/reports">Reports</a>
+        <a href="/settings">Settings</a>
+    </nav>
+    <div class="main-content">
+        <div class="top-header">
+            <h1>Inventory</h1>
+            <div class="header-actions">
+                <span class="text-muted">{{ inventory.stats.total_qty }} units in stock</span>
+            </div>
+        </div>
+
+        <div class="top-cards-row">
+            <div class="card stat-card">
+                <h4>Total Units</h4>
+                <div class="value">{{ "{:,}".format(inventory.stats.total_qty) }}</div>
+            </div>
+            <div class="card stat-card">
+                <h4>Total Cost Value</h4>
+                <div class="value">{{ "{:,.0f}".format(inventory.stats.total_value) }}</div>
+            </div>
+            <div class="card stat-card">
+                <h4>Total Selling Value</h4>
+                <div class="value">{{ "{:,.0f}".format(inventory.stats.total_selling_value) }}</div>
+            </div>
+            <div class="card stat-card">
+                <h4>Value Gap</h4>
+                <div class="value text-green">{{ "{:,.0f}".format(inventory.stats.total_selling_value - inventory.stats.total_value) }}</div>
+            </div>
+        </div>
+
+        <div class="charts-row">
+            <div class="chart-card">
+                <h3>Inventory by Category</h3>
+                <canvas id="invBarChart" height="250"></canvas>
+            </div>
+            <div class="chart-card">
+                <h3>Category Cost Share</h3>
+                <canvas id="invPieChart" height="250"></canvas>
+            </div>
+        </div>
+
+        <div class="chart-card" style="margin-top:20px;">
+            <div class="chart-header">
+                <h3>Inventory Detail</h3>
+                <input type="text" id="searchInv" placeholder="Search..." style="width:200px; border:1px solid var(--border-color); border-radius:12px; padding:10px 12px;" onkeyup="filterInv()">
+            </div>
+            <div class="table-wrap">
+                <table class="tx-table" id="invTable">
+                    <tr>
+                        <th>Code</th>
+                        <th>Name</th>
+                        <th>Category</th>
+                        <th>Stock</th>
+                        <th>Cost/Unit</th>
+                        <th>Total Cost</th>
+                        <th>Sell/Unit</th>
+                    </tr>
+                    {% for p in inventory.products %}
+                    <tr>
+                        <td>{{ p.ma_hang }}</td>
+                        <td><strong>{{ p.ten_hang }}</strong></td>
+                        <td><span class="badge">{{ p.nhom_hang or 'N/A' }}</span></td>
+                        <td>{{ p.ton_kho }}</td>
+                        <td>{{ "{:,.0f}".format(p.gia_von) }}</td>
+                        <td>{{ "{:,.0f}".format(p.gia_tri_ton) }}</td>
+                        <td>{{ "{:,.0f}".format(p.gia_ban) }}</td>
+                    </tr>
+                    {% endfor %}
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <script src="/static/js/chart.js"></script>
+    <script>
+        const nhom = {{ inventory.nhom_hang | tojson }};
+        if (typeof Chart !== 'undefined') {
+            const labels = nhom.map(n => n.nhom || 'Other');
+            const qty = nhom.map(n => n.tong_ton);
+            const value = nhom.map(n => n.tong_gia_tri);
+            const colors = ['rgb(0,25,152)','#3b82f6','#8b5cf6','#ec4899','#f59e0b','#10b981','#64748b'];
+
+            const c1 = document.getElementById('invBarChart');
+            if (c1) {
+                new Chart(c1, {
+                    type: 'bar',
+                    data: {
+                        labels,
+                        datasets: [{
+                            label: 'Qty',
+                            data: qty,
+                            backgroundColor: colors,
+                            borderRadius: 4,
+                            barPercentage: 0.7,
+                        }]
+                    },
+                    options: {
+                        responsive: true, maintainAspectRatio: false,
+                        plugins: { legend: { display: false } },
+                        scales: { x: { grid: { display: false } }, y: { grid: { borderDash: [5,5] } } }
+                    }
+                });
+            }
+
+            const c2 = document.getElementById('invPieChart');
+            if (c2) {
+                new Chart(c2, {
+                    type: 'doughnut',
+                    data: {
+                        labels,
+                        datasets: [{ data: value, backgroundColor: colors, borderWidth: 0 }]
+                    },
+                    options: {
+                        responsive: true, maintainAspectRatio: false,
+                        plugins: { legend: { position: 'bottom', labels: { usePointStyle: true } } },
+                        cutout: '68%'
+                    }
+                });
+            }
+        }
+
+        function filterInv() {
+            const val = document.getElementById('searchInv').value.toLowerCase();
+            document.querySelectorAll('#invTable tr:not(:first-child)').forEach(r => {
+                r.style.display = r.textContent.toLowerCase().includes(val) ? '' : 'none';
+            });
+        }
+    </script>
+</body>
+</html>

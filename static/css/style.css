@@ -30,9 +30,9 @@ body {
 
 /* Sidebar */
 .sidebar {
-    width: 250px;
+    width: 220px;
     background: var(--bg-main);
-    padding: 30px 20px;
+    padding: 24px 16px;
     border-right: 1px solid var(--border-color);
     position: fixed;
     height: 100vh;
@@ -45,20 +45,21 @@ body {
     gap: 10px;
     font-size: 1.4rem;
     font-weight: 700;
-    margin-bottom: 40px;
-    padding: 0 15px;
+    margin-bottom: 32px;
+    padding: 0 12px;
     color: var(--primary-blue);
 }
 
 .sidebar a {
     display: flex;
     align-items: center;
-    padding: 12px 15px;
+    padding: 10px 12px;
     color: var(--text-muted);
     text-decoration: none;
     font-weight: 500;
-    border-radius: 12px;
-    margin-bottom: 8px;
+    border-radius: 10px;
+    margin-bottom: 4px;
+    font-size: 0.95rem;
     transition: all 0.3s ease;
 }
 
@@ -251,6 +252,7 @@ body {
 /* Utilities */
 .text-green { color: var(--success); }
 .text-red { color: var(--danger); }
+.text-warning { color: var(--warning); }
 .text-muted { color: var(--text-muted); font-size: 0.85rem; }
 
 .status-badge {

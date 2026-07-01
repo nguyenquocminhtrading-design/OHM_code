@@ -8,60 +8,85 @@
 </head>
 <body>
     <nav class="sidebar">
-        <h2><span>Finance</span></h2>
-        <a href="/dashboard"><span>Dashboard</span></a>
-        <a href="/transactions"><span>Transactions</span></a>
-        <a href="/assets"><span>Assets</span></a>
-        <a href="/reports"><span>Reports</span></a>
-        <a href="/settings" class="active"><span>Settings</span></a>
+        <div class="sidebar-logo"><span>OHM</span></div>
+        <a href="/dashboard">Dashboard</a>
+        <a href="/products">Products</a>
+        <a href="/inventory">Inventory</a>
+        <a href="/profit">Profit</a>
+        <a href="/transactions">Transactions</a>
+        <a href="/reports">Reports</a>
+        <a href="/settings" class="active">Settings</a>
     </nav>
     <div class="main-content">
         <div class="header-bar">
             <h1>Settings</h1>
         </div>
 
-        <div class="card" style="max-width:600px;">
-            <h3>System Information</h3>
-            <table style="box-shadow:none;">
-                <tr><td>Database</td><td><code>instance/finance.db</code></td></tr>
-                <tr><td>Auto-backup</td><td>Daily at 02:00</td></tr>
-                <tr><td>Depreciation</td><td>1st of each month</td></tr>
-                <tr><td>Telegram Bot</td><td>Active (webhook mode)</td></tr>
-            </table>
-        </div>
-
-        <div class="card" style="max-width:600px;margin-top:20px;">
-            <h3>Quick Actions</h3>
-            <div style="display:flex;gap:10px;flex-wrap:wrap;">
-                <button class="btn btn-success" onclick="runDepreciation()">Run Depreciation Now</button>
-                <button class="btn btn-primary" onclick="exportData()">Export to Excel</button>
+        <div class="top-cards-row">
+            <div class="card stat-card">
+                <h4>Import Products</h4>
+                <div class="value">
+                    <button class="btn btn-primary" onclick="importData()">Import from Excel</button>
+                </div>
+                <div id="importResult" style="margin-top:10px;"></div>
+            </div>
+            <div class="card stat-card">
+                <h4>Export</h4>
+                <div class="value">
+                    <a href="/api/export/excel" class="btn btn-primary" style="text-decoration:none;">Download Excel</a>
+                </div>
             </div>
         </div>
 
-        <div class="card" style="max-width:600px;margin-top:20px;">
-            <h3>Setup Instructions</h3>
-            <ol style="padding-left:20px;line-height:1.8;">
-                <li>Create a bot via <a href="https://t.me/BotFather" target="_blank">@BotFather</a></li>
-                <li>Copy token to <code>.env</code> file</li>
-                <li>Run <code>python app.py</code> locally to test</li>
-                <li>Deploy on PythonAnywhere</li>
-                <li>Set webhook via Telegram API</li>
-            </ol>
+        <div class="chart-card" style="margin-top:20px;">
+            <h3>Import History</h3>
+            <table>
+                <tr><th>Time</th><th>File</th><th>Products</th><th>Status</th><th>Message</th></tr>
+                {% for log in import_logs %}
+                <tr>
+                    <td>{{ log.imported_at }}</td>
+                    <td>{{ log.source_file }}</td>
+                    <td>{{ log.product_count }}</td>
+                    <td><span class="badge {% if log.status == 'success' %}income{% else %}expense{% endif %}">{{ log.status }}</span></td>
+                    <td>{{ log.message or '' }}</td>
+                </tr>
+                {% endfor %}
+            </table>
+        </div>
+
+        <div class="chart-card" style="margin-top:20px;">
+            <h3>System Info</h3>
+            <table>
+                <tr><td>Environment</td><td>PA Webhook</td></tr>
+                <tr><td>Database</td><td>SQLite</td></tr>
+                <tr><td>Bot Token</td><td>****{{ (''.join(['x']*10)) }}****</td></tr>
+            </table>
         </div>
     </div>
 
     <script>
-        function runDepreciation() {
-            fetch("/api/run-depreciation", { method: "POST" })
+        function importData() {
+            const btn = event.target;
+            btn.disabled = true;
+            btn.textContent = 'Importing...';
+            document.getElementById('importResult').innerHTML = '<div class="text-muted">Processing...</div>';
+            
+            fetch('/api/products/import', { method: 'POST' })
                 .then(r => r.json())
                 .then(data => {
-                    alert(`Depreciation applied to ${data.depreciated} assets.`);
-                    location.reload();
-                });
-        }
-
-        function exportData() {
-            alert("Export feature: use the Telegram /export command or check the database file.");
+                    if (data.error) {
+                        document.getElementById('importResult').innerHTML = '<div class="text-red">Error: ' + data.error + '</div>';
+                    } else {
+                        document.getElementById('importResult').innerHTML =
+                            '<div class="text-green">✅ Products: ' + data.products +
+                            ' | Sales: ' + data.sales +
+                            ' | Imports: ' + data.imports + '</div>';
+                    }
+                })
+                .catch(err => {
+                    document.getElementById('importResult').innerHTML = '<div class="text-red">Error: ' + err + '</div>';
+                })
+                .finally(() => { btn.disabled = false; btn.textContent = 'Import from Excel'; });
         }
     </script>
 </body>

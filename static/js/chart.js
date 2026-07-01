@@ -170,9 +170,7 @@ function drawBarChart(canvasId, labels, incomeData, expenseData) {
                 },
             },
             scales: {
-                x: {
-                    grid: { display: false },
-                },
+                x: { grid: { display: false } },
                 y: {
                     grid: { borderDash: [5, 5], color: "#f1f5f9" },
                     ticks: {
@@ -214,10 +212,7 @@ function drawPieChart(canvasId, data, labels) {
             plugins: {
                 legend: {
                     position: "bottom",
-                    labels: {
-                        usePointStyle: true,
-                        padding: 16,
-                    },
+                    labels: { usePointStyle: true, padding: 16 },
                 },
                 tooltip: {
                     callbacks: {
@@ -228,14 +223,6 @@ function drawPieChart(canvasId, data, labels) {
             cutout: "68%",
         },
     });
-}
-
-function drawPortfolioChart(canvasId, assets) {
-    if (!chartAvailable()) return;
-    const active = (assets || []).filter(a => a.is_active);
-    const labels = active.map(a => a.name);
-    const data = active.map(a => a.current_value);
-    drawPieChart(canvasId, data, labels);
 }
 
 function drawStackedBarChart(canvasId, labels, seriesList) {
@@ -288,24 +275,4 @@ function drawStackedBarChart(canvasId, labels, seriesList) {
             },
         },
     });
-}
-
-function initDashboardCharts(report, assets) {
-    const cf = report.cash_flow || [];
-    const labels = cf.map(c => c.label);
-    const income = cf.map(c => c.income);
-    const expense = cf.map(c => c.expense);
-    const net = cf.map(c => c.net);
-
-    drawBarChart("cashFlowChart", labels, income, expense);
-    drawLineChart("netBalanceChart", labels, net, "#0984e3", "Net");
-
-    const cats = report.categories || [];
-    drawPieChart("categoryChart", cats.map(c => c.total), cats.map(c => c.category));
-    drawPortfolioChart("portfolioChart", assets ? assets.assets : []);
-
-    const bankSpend = report.bank_spend || {};
-    const bankLabels = Object.keys(bankSpend);
-    const bankData = bankLabels.map(k => bankSpend[k] || 0);
-    drawPieChart("bankSpendChart", bankData, bankLabels);
 }

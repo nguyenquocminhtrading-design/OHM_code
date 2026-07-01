@@ -5,7 +5,6 @@ from datetime import datetime, date
 from apscheduler.schedulers.background import BackgroundScheduler
 
 from config import DATABASE_PATH
-from asset_manager import run_monthly_depreciation
 
 logger = logging.getLogger(__name__)
 
@@ -23,15 +22,6 @@ def backup_database():
         logger.error(f"Backup failed: {e}")
 
 
-def monthly_depreciation_job():
-    logger.info("Running monthly depreciation...")
-    try:
-        results = run_monthly_depreciation()
-        logger.info(f"Depreciation applied to {len(results)} assets.")
-    except Exception as e:
-        logger.error(f"Depreciation job failed: {e}")
-
-
 def create_scheduler():
     scheduler = BackgroundScheduler(daemon=True)
 
@@ -41,16 +31,6 @@ def create_scheduler():
         hour=2,
         minute=0,
         id="backup_db",
-        replace_existing=True,
-    )
-
-    scheduler.add_job(
-        monthly_depreciation_job,
-        "cron",
-        day=1,
-        hour=0,
-        minute=5,
-        id="monthly_depreciation",
         replace_existing=True,
     )
 
