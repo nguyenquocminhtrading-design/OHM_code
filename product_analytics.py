@@ -1,7 +1,7 @@
 from product_db import (
     get_db_conn, get_all_products, get_product_summary_stats,
     get_products_by_nhom, get_sales_summary, get_top_selling_products,
-    get_import_logs, get_all_plans
+    get_import_logs, get_all_plans, init_product_db
 )
 from product_reader import import_all_from_call
 

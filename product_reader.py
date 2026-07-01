@@ -35,53 +35,52 @@ def safe_int(val):
 
 
 def read_products_from_call():
-    """Đọc sheet ThongTinSanPham — sản phẩm + giá bán, giá vốn, tồn kho."""
-    if not os.path.exists(OHM_CALL_FILE):
-        return [], f"File {OHM_CALL_FILE} not found"
+    """Đọc sheet 2. Giá Bán & Margin từ OHM_KeHoachXoayVon.xlsx."""
+    if not os.path.exists(KEHOACH_FILE):
+        return [], f"File {KEHOACH_FILE} not found"
 
     try:
-        wb = openpyxl.load_workbook(OHM_CALL_FILE, data_only=True)
+        wb = openpyxl.load_workbook(KEHOACH_FILE, data_only=True)
     except Exception as e:
         return [], f"Error opening file: {e}"
 
     products = []
-
-    # Sheet: ThongTinSanPham
-    if "ThongTinSanPham" not in wb.sheetnames:
+    seen = set()
+    
+    if "2. Giá Bán & Margin" not in wb.sheetnames:
         wb.close()
-        return [], "Sheet 'ThongTinSanPham' not found"
+        return [], "Sheet '2. Giá Bán & Margin' not found"
 
-    ws = wb["ThongTinSanPham"]
-    rows = list(ws.iter_rows(min_row=2, values_only=True))
+    ws = wb["2. Giá Bán & Margin"]
+    rows = list(ws.iter_rows(min_row=5, values_only=True))
 
     for row in rows:
-        if not row or not row[3]:
+        if not row or not row[0] or str(row[0]).strip() == "":
             continue
-        nhom1 = safe_str(row[0])
-        nhom2 = safe_str(row[1])
-        nhom3 = safe_str(row[2])
-        ma_hang = safe_str(row[3])
-        ten_hang = safe_str(row[4])
-        thuong_hieu = safe_str(row[5])
-        gia_ban = safe_float(row[6])
-        gia_von = safe_float(row[7])
-        ton_kho = safe_int(row[8])
-        vi_tri = safe_str(row[9]) if len(row) > 9 else ""
-
-        if not ma_hang:
+            
+        ma_hang = safe_str(row[0]).upper()
+        if not ma_hang.startswith("NO.") and not ma_hang.startswith("N0."):
             continue
-
+            
+        if ma_hang in seen:
+            continue
+        seen.add(ma_hang)
+            
+        ten_hang = safe_str(row[1])
+        gia_von = safe_float(row[2])
+        gia_ban = safe_float(row[5])
+        
         products.append({
             "ma_hang": ma_hang,
             "ten_hang": ten_hang,
-            "thuong_hieu": thuong_hieu,
-            "nhom_hang_cap1": nhom1,
-            "nhom_hang_cap2": nhom2,
-            "nhom_hang_cap3": nhom3,
+            "thuong_hieu": "OHM",
+            "nhom_hang_cap1": "Sản Phẩm",
+            "nhom_hang_cap2": "",
+            "nhom_hang_cap3": "",
             "gia_ban": gia_ban,
             "gia_von": gia_von,
-            "ton_kho": ton_kho,
-            "vi_tri": vi_tri,
+            "ton_kho": 10,  # Tồn kho giả định
+            "vi_tri": "",
         })
 
     wb.close()

@@ -100,6 +100,31 @@
                 </table>
             </div>
         </div>
+
+        <div class="recent-transactions" style="margin-top:20px;">
+            <div class="chart-header">
+                <h3>Product Details</h3>
+                <a href="/products" class="text-muted" style="text-decoration: none;">View All</a>
+            </div>
+            <div class="table-wrap">
+                <table class="tx-table">
+                    <tr><th>Product Name</th><th>Cost (VND)</th><th>Selling Price (VND)</th><th>Margin %</th></tr>
+                    {% for p in products.margins.all[:8] %}
+                    <tr>
+                        <td>
+                            <div style="font-weight:600;">{{ p.ten_hang }}</div>
+                            <div class="text-muted">{{ p.ma_hang }}</div>
+                        </td>
+                        <td class="text-muted">{{ "{:,.0f}".format(p.gia_von) }}</td>
+                        <td style="color:#1d4ed8; font-weight:500;">{{ "{:,.0f}".format(p.gia_ban) }}</td>
+                        <td class="{% if p.bien_lai > 20 %}text-green{% elif p.bien_lai > 0 %}text-orange{% else %}text-red{% endif %}">
+                            {{ "{:.1f}%".format(p.bien_lai) }}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </table>
+            </div>
+        </div>
     </div>
 
     <script src="/static/js/chart.js"></script>

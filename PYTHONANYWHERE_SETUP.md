@@ -83,6 +83,7 @@ PythonAnywhere free tier tắt web sau 3 tháng không hoạt động.
 **Cách 1:** Dùng [cron-job.org](https://cron-job.org) — tạo task ping `https://{username}.pythonanywhere.com/ping` mỗi 5 phút.
 
 **Cách 2:** Dùng PythonAnywhere Scheduled Task:
+
 - **Schedule tab** → **Create scheduled task**
 - `python3.11 -c "import requests; requests.get('https://{username}.pythonanywhere.com/ping')"`
 - Chạy mỗi ngày hoặc mỗi giờ
@@ -111,9 +112,9 @@ python3.11 -c "from gsheets_reader import sync_all_from_sheets; r = sync_all_fro
 
 ## Debug nếu gặp lỗi
 
-| Lỗi | Nguyên nhân | Fix |
-|-----|-------------|-----|
-| `ModuleNotFoundError` | Dùng sai `pip` (dùng pip2 hoặc pip mặc định) | Dùng `pip3.11 install --user -r requirements.txt` |
-| `python: command not found` | Không dùng đúng phiên bản | Dùng `python3.11` thay vì `python` |
-| Web không load / 502 | WSGI file sai | Kiểm tra path trong WSGI file |
-| Bot không trả lời | Webhook chưa set hoặc sai URL | Chạy lại lệnh set webhook ở bước 5 |
+| Lỗi                          | Nguyên nhân                                       | Fix                                                 |
+| ----------------------------- | --------------------------------------------------- | --------------------------------------------------- |
+| `ModuleNotFoundError`       | Dùng sai`pip` (dùng pip2 hoặc pip mặc định) | Dùng`pip3.11 install --user -r requirements.txt` |
+| `python: command not found` | Không dùng đúng phiên bản                     | Dùng`python3.11` thay vì `python`             |
+| Web không load / 502         | WSGI file sai                                       | Kiểm tra path trong WSGI file                      |
+| Bot không trả lời          | Webhook chưa set hoặc sai URL                     | Chạy lại lệnh set webhook ở bước 5            |
